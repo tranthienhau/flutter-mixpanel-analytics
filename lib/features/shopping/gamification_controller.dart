@@ -30,7 +30,8 @@ class GamificationState {
 }
 
 class GamificationController extends StateNotifier<GamificationState> {
-  GamificationController(this._ref) : super(GamificationState());
+  GamificationController(this._ref, {GamificationState? initial})
+      : super(initial ?? GamificationState());
 
   final Ref _ref;
 

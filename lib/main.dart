@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/analytics/analytics_provider.dart';
 import 'core/analytics/analytics_service.dart';
-import 'features/shopping/product_list_screen.dart';
+import 'features/home_shell.dart';
 
 const _mixpanelToken = String.fromEnvironment('MIXPANEL_TOKEN', defaultValue: '');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final analytics = await AnalyticsService.init(
+  final analytics = await MixpanelAnalyticsService.init(
     token: _mixpanelToken,
     optOutByDefault: true,
     appVersion: '0.1.0',
@@ -47,7 +47,7 @@ class GamifiedShopApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const ProductListScreen(),
+      home: const HomeShell(),
     );
   }
 }

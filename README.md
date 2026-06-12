@@ -2,6 +2,16 @@
 
 A Flutter + Riverpod proof-of-concept demonstrating production-grade Mixpanel analytics integration for a gamified shopping app. Focuses on event tracking, user properties, funnels, cohorts, and revenue tracking patterns that drive engagement and conversion insights.
 
+## Demo
+
+Real iOS-Simulator captures from the running app (no mockups). See [FLOW.md](FLOW.md) for how they are generated.
+
+| Shop funnel | Progress dashboard | Badges + quests |
+| --- | --- | --- |
+| ![Shop](screenshots/01-shop.png) | ![Progress](screenshots/03-progress-dashboard.png) | ![Badges and quests](screenshots/04-badges-quests.png) |
+
+![Demo](screenshots/demo.gif)
+
 ## What this POC demonstrates
 
 - Mixpanel SDK initialization with EU/US data residency
@@ -28,17 +38,17 @@ A Flutter + Riverpod proof-of-concept demonstrating production-grade Mixpanel an
 lib/
 ├── core/
 │   └── analytics/
-│       ├── analytics_service.dart       # Mixpanel wrapper, identity, opt-in/out
+│       ├── analytics_service.dart       # AnalyticsService interface + Mixpanel/Noop impls
 │       ├── event_registry.dart          # Typed event names + property keys
-│       └── analytics_provider.dart      # Riverpod provider + scoped tracker
+│       └── analytics_provider.dart      # Riverpod provider for the tracker
 ├── features/
+│   ├── home_shell.dart                  # Bottom-nav shell (Shop + Progress)
 │   ├── shopping/
-│   │   ├── product_list_screen.dart     # Tracks product_viewed
-│   │   ├── cart_controller.dart         # Tracks add_to_cart, remove_from_cart
-│   │   └── checkout_controller.dart     # Tracks checkout_started, purchase_completed
+│   │   ├── product_list_screen.dart     # Tracks product_viewed, add_to_cart
+│   │   ├── cart_controller.dart         # Tracks add_to_cart, checkout, purchase
+│   │   └── gamification_controller.dart # Tracks xp_earned, level_up, streak, badges
 │   └── gamification/
-│       ├── xp_controller.dart           # Tracks xp_earned, level_up
-│       └── streak_controller.dart       # Tracks streak_increment, badge_unlocked
+│       └── gamification_dashboard_screen.dart  # XP, streak, badges, daily quests
 └── main.dart
 ```
 

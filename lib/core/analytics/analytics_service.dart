@@ -6,7 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'event_registry.dart';
 
-/// Thin, typed wrapper around the Mixpanel Flutter SDK.
+/// Typed analytics surface for the app.
+///
+/// Feature code depends only on this abstraction, never on Mixpanel directly.
+/// The production binding is [MixpanelAnalyticsService]; tests and previews use
+/// [NoopAnalyticsService] so screens can render without native SDK init.
 ///
 /// Goals:
 ///  - All event tracking goes through typed methods, never raw strings
@@ -14,14 +18,68 @@ import 'event_registry.dart';
 ///  - Identity calls (identify, alias, reset) are funneled here so the rest
 ///    of the app does not have to know about Mixpanel internals
 ///  - Super properties (platform, app_version) are set once at startup
-class AnalyticsService {
-  AnalyticsService._(this._mixpanel);
+abstract class AnalyticsService {
+  Future<void> grantConsent();
+  Future<void> revokeConsent();
+  Future<bool> hasConsent();
+
+  Future<void> identify({
+    required String userId,
+    String? acquisitionChannel,
+    String? plan,
+    String? country,
+  });
+
+  Future<void> reset();
+
+  void trackProductViewed({
+    required String productId,
+    required String productName,
+    required String category,
+    required double price,
+    String currency,
+    String source,
+  });
+
+  void trackAddToCart({
+    required String productId,
+    required int quantity,
+    required double price,
+    String currency,
+  });
+
+  void trackCheckoutStarted({
+    required double cartValue,
+    required int itemCount,
+    String currency,
+  });
+
+  void trackPurchaseCompleted({
+    required String orderId,
+    required double cartValue,
+    required int itemCount,
+    required String paymentMethod,
+    String currency,
+  });
+
+  void trackXpEarned({required int amount, required String source});
+  void trackLevelUp({required int newLevel});
+  void trackStreakIncrement({required int streakDays});
+  void trackBadgeUnlocked({required String badgeId});
+  void trackDailyQuestCompleted({required String questId, required int xpReward});
+
+  Future<void> flush();
+}
+
+/// Production [AnalyticsService] backed by the Mixpanel Flutter SDK.
+class MixpanelAnalyticsService implements AnalyticsService {
+  MixpanelAnalyticsService._(this._mixpanel);
 
   final Mixpanel _mixpanel;
 
   static const _consentKey = 'mp_consent_granted';
 
-  static Future<AnalyticsService> init({
+  static Future<MixpanelAnalyticsService> init({
     required String token,
     bool optOutByDefault = true,
     String? appVersion,
@@ -38,7 +96,7 @@ class AnalyticsService {
       if (appVersion != null) PropertyKeys.appVersion: appVersion,
     });
 
-    return AnalyticsService._(mixpanel);
+    return MixpanelAnalyticsService._(mixpanel);
   }
 
   static String _platform() {
@@ -52,20 +110,23 @@ class AnalyticsService {
   // Consent
   // ---------------------------------------------------------------------------
 
+  @override
   Future<void> grantConsent() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_consentKey, true);
-    await _mixpanel.optInTracking();
-    await _mixpanel.track(EventRegistry.consentGranted);
+    _mixpanel.optInTracking();
+    _mixpanel.track(EventRegistry.consentGranted);
   }
 
+  @override
   Future<void> revokeConsent() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_consentKey, false);
-    await _mixpanel.track(EventRegistry.consentRevoked);
-    await _mixpanel.optOutTracking();
+    _mixpanel.track(EventRegistry.consentRevoked);
+    _mixpanel.optOutTracking();
   }
 
+  @override
   Future<bool> hasConsent() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_consentKey) ?? false;
@@ -75,6 +136,7 @@ class AnalyticsService {
   // Identity
   // ---------------------------------------------------------------------------
 
+  @override
   Future<void> identify({
     required String userId,
     String? acquisitionChannel,
@@ -91,12 +153,14 @@ class AnalyticsService {
     if (country != null) people.set(PropertyKeys.country, country);
   }
 
+  @override
   Future<void> reset() => _mixpanel.reset();
 
   // ---------------------------------------------------------------------------
   // Funnel events
   // ---------------------------------------------------------------------------
 
+  @override
   void trackProductViewed({
     required String productId,
     required String productName,
@@ -115,6 +179,7 @@ class AnalyticsService {
     });
   }
 
+  @override
   void trackAddToCart({
     required String productId,
     required int quantity,
@@ -129,6 +194,7 @@ class AnalyticsService {
     });
   }
 
+  @override
   void trackCheckoutStarted({
     required double cartValue,
     required int itemCount,
@@ -141,6 +207,7 @@ class AnalyticsService {
     });
   }
 
+  @override
   void trackPurchaseCompleted({
     required String orderId,
     required double cartValue,
@@ -168,6 +235,7 @@ class AnalyticsService {
   // Gamification events
   // ---------------------------------------------------------------------------
 
+  @override
   void trackXpEarned({required int amount, required String source}) {
     _mixpanel.track(EventRegistry.xpEarned, properties: {
       PropertyKeys.xpAmount: amount,
@@ -176,6 +244,7 @@ class AnalyticsService {
     _mixpanel.getPeople().increment(PropertyKeys.totalXp, amount.toDouble());
   }
 
+  @override
   void trackLevelUp({required int newLevel}) {
     _mixpanel.track(EventRegistry.levelUp, properties: {
       PropertyKeys.newLevel: newLevel,
@@ -183,18 +252,21 @@ class AnalyticsService {
     _mixpanel.getPeople().set(PropertyKeys.totalLevel, newLevel);
   }
 
+  @override
   void trackStreakIncrement({required int streakDays}) {
     _mixpanel.track(EventRegistry.streakIncrement, properties: {
       PropertyKeys.streakDays: streakDays,
     });
   }
 
+  @override
   void trackBadgeUnlocked({required String badgeId}) {
     _mixpanel.track(EventRegistry.badgeUnlocked, properties: {
       PropertyKeys.badgeId: badgeId,
     });
   }
 
+  @override
   void trackDailyQuestCompleted({required String questId, required int xpReward}) {
     _mixpanel.track(EventRegistry.dailyQuestCompleted, properties: {
       PropertyKeys.questId: questId,
@@ -203,5 +275,69 @@ class AnalyticsService {
   }
 
   // Force a flush, e.g. before logout or app termination.
+  @override
   Future<void> flush() => _mixpanel.flush();
+}
+
+/// No-op [AnalyticsService] for tests, widget previews, and screenshot capture.
+///
+/// Lets every screen render without booting the native Mixpanel SDK.
+class NoopAnalyticsService implements AnalyticsService {
+  @override
+  Future<void> grantConsent() async {}
+  @override
+  Future<void> revokeConsent() async {}
+  @override
+  Future<bool> hasConsent() async => true;
+  @override
+  Future<void> identify({
+    required String userId,
+    String? acquisitionChannel,
+    String? plan,
+    String? country,
+  }) async {}
+  @override
+  Future<void> reset() async {}
+  @override
+  void trackProductViewed({
+    required String productId,
+    required String productName,
+    required String category,
+    required double price,
+    String currency = 'USD',
+    String source = 'list',
+  }) {}
+  @override
+  void trackAddToCart({
+    required String productId,
+    required int quantity,
+    required double price,
+    String currency = 'USD',
+  }) {}
+  @override
+  void trackCheckoutStarted({
+    required double cartValue,
+    required int itemCount,
+    String currency = 'USD',
+  }) {}
+  @override
+  void trackPurchaseCompleted({
+    required String orderId,
+    required double cartValue,
+    required int itemCount,
+    required String paymentMethod,
+    String currency = 'USD',
+  }) {}
+  @override
+  void trackXpEarned({required int amount, required String source}) {}
+  @override
+  void trackLevelUp({required int newLevel}) {}
+  @override
+  void trackStreakIncrement({required int streakDays}) {}
+  @override
+  void trackBadgeUnlocked({required String badgeId}) {}
+  @override
+  void trackDailyQuestCompleted({required String questId, required int xpReward}) {}
+  @override
+  Future<void> flush() async {}
 }
